@@ -354,6 +354,13 @@ ENV_FILE_PARSER_ALLOWLIST = "HINDSIGHT_API_FILE_PARSER_ALLOWLIST"
 ENV_FILE_PARSER_IRIS_TOKEN = "HINDSIGHT_API_FILE_PARSER_IRIS_TOKEN"
 ENV_FILE_PARSER_IRIS_ORG_ID = "HINDSIGHT_API_FILE_PARSER_IRIS_ORG_ID"
 ENV_FILE_PARSER_LLAMA_PARSE_API_KEY = "HINDSIGHT_API_FILE_PARSER_LLAMA_PARSE_API_KEY"
+ENV_FILE_PARSER_MARKITDOWN_OCR_API_KEY = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_API_KEY"
+ENV_FILE_PARSER_MARKITDOWN_OCR_BASE_URL = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_BASE_URL"
+ENV_FILE_PARSER_MARKITDOWN_OCR_PROVIDER = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROVIDER"
+ENV_FILE_PARSER_MARKITDOWN_OCR_MODEL = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_MODEL"
+ENV_FILE_PARSER_MARKITDOWN_OCR_PROMPT = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROMPT"
+ENV_FILE_PARSER_OCRMYPDF_LANG = "HINDSIGHT_API_FILE_PARSER_OCRMYPDF_LANG"
+ENV_FILE_PARSER_OCRMYPDF_JOBS = "HINDSIGHT_API_FILE_PARSER_OCRMYPDF_JOBS"
 ENV_FILE_CONVERSION_MAX_BATCH_SIZE_MB = "HINDSIGHT_API_FILE_CONVERSION_MAX_BATCH_SIZE_MB"
 ENV_FILE_CONVERSION_MAX_BATCH_SIZE = "HINDSIGHT_API_FILE_CONVERSION_MAX_BATCH_SIZE"
 ENV_ENABLE_FILE_UPLOAD_API = "HINDSIGHT_API_ENABLE_FILE_UPLOAD_API"
@@ -607,6 +614,8 @@ DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS = 60  # Batch API polling interval in
 DEFAULT_FILE_STORAGE_TYPE = "native"  # PostgreSQL BYTEA storage
 DEFAULT_FILE_PARSER = "markitdown"  # Default parser fallback chain (comma-separated, e.g. "iris,markitdown")
 DEFAULT_FILE_PARSER_ALLOWLIST = None  # Allowlist of parsers clients may request (None = all registered parsers)
+DEFAULT_FILE_PARSER_OCRMYPDF_LANG = "eng"  # OCR language(s), e.g. "eng" or "eng+fra"
+DEFAULT_FILE_PARSER_OCRMYPDF_JOBS = 1  # OCRmyPDF worker processes per conversion
 DEFAULT_FILE_CONVERSION_MAX_BATCH_SIZE_MB = 100  # Max total batch size in MB (all files combined)
 DEFAULT_FILE_CONVERSION_MAX_BATCH_SIZE = 10  # Max files per batch upload
 DEFAULT_ENABLE_FILE_UPLOAD_API = True  # Enable file upload endpoint
@@ -1072,6 +1081,13 @@ class HindsightConfig:
     file_parser_iris_token: str | None  # Vectorize API token for iris parser (VECTORIZE_TOKEN)
     file_parser_iris_org_id: str | None  # Vectorize org ID for iris parser (VECTORIZE_ORG_ID)
     file_parser_llama_parse_api_key: str | None  # LlamaCloud API key for llama_parse parser
+    file_parser_markitdown_ocr_api_key: str | None  # OpenAI-compatible API key for markitdown_ocr
+    file_parser_markitdown_ocr_base_url: str | None  # OpenAI-compatible base URL for markitdown_ocr
+    file_parser_markitdown_ocr_provider: str | None  # OpenAI-compatible provider for markitdown_ocr
+    file_parser_markitdown_ocr_model: str | None  # Vision model for markitdown_ocr
+    file_parser_markitdown_ocr_prompt: str | None  # Optional OCR prompt override
+    file_parser_ocrmypdf_lang: str  # OCRmyPDF/Tesseract language(s), e.g. "eng" or "eng+fra"
+    file_parser_ocrmypdf_jobs: int  # OCRmyPDF worker processes per conversion
     file_conversion_max_batch_size_mb: int  # Max total batch size in MB (all files combined)
     file_conversion_max_batch_size: int  # Max files per request
     enable_file_upload_api: bool
@@ -1217,6 +1233,7 @@ class HindsightConfig:
         # File parser credentials
         "file_parser_iris_token",
         "file_parser_llama_parse_api_key",
+        "file_parser_markitdown_ocr_api_key",
     }
 
     # CONFIGURABLE_FIELDS: Safe behavioral settings that can be customized per-tenant/bank
@@ -1729,6 +1746,17 @@ class HindsightConfig:
             file_parser_iris_token=os.getenv(ENV_FILE_PARSER_IRIS_TOKEN) or None,
             file_parser_iris_org_id=os.getenv(ENV_FILE_PARSER_IRIS_ORG_ID) or None,
             file_parser_llama_parse_api_key=os.getenv(ENV_FILE_PARSER_LLAMA_PARSE_API_KEY) or None,
+            file_parser_markitdown_ocr_api_key=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_API_KEY) or None,
+            file_parser_markitdown_ocr_base_url=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_BASE_URL) or None,
+            file_parser_markitdown_ocr_provider=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_PROVIDER) or None,
+            file_parser_markitdown_ocr_model=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_MODEL) or None,
+            file_parser_markitdown_ocr_prompt=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_PROMPT) or None,
+            file_parser_ocrmypdf_lang=os.getenv(ENV_FILE_PARSER_OCRMYPDF_LANG) or DEFAULT_FILE_PARSER_OCRMYPDF_LANG,
+            file_parser_ocrmypdf_jobs=_parse_positive_int(
+                ENV_FILE_PARSER_OCRMYPDF_JOBS,
+                os.getenv(ENV_FILE_PARSER_OCRMYPDF_JOBS),
+                DEFAULT_FILE_PARSER_OCRMYPDF_JOBS,
+            ),
             file_conversion_max_batch_size_mb=int(
                 os.getenv(ENV_FILE_CONVERSION_MAX_BATCH_SIZE_MB, str(DEFAULT_FILE_CONVERSION_MAX_BATCH_SIZE_MB))
             ),

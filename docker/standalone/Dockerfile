@@ -145,7 +145,12 @@ WORKDIR /app
 # Note: libicu version varies by Debian version - try common versions in order
 RUN apt-get update && apt-get install -y \
     curl \
+    ghostscript \
+    icc-profiles-free \
+    pngquant \
     procps \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     libxml2 \
     libssl3 \
     libgssapi-krb5-2 \
@@ -292,7 +297,12 @@ WORKDIR /app
 # Note: libicu version varies by Debian version - try common versions in order
 RUN apt-get update && apt-get install -y \
     curl \
+    ghostscript \
+    icc-profiles-free \
+    pngquant \
     procps \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     libxml2 \
     libssl3 \
     libgssapi-krb5-2 \

@@ -25,6 +25,27 @@ print_warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
+ensure_parent_dir() {
+    local path="$1"
+    local parent="${path%/*}"
+    if [[ -n "$parent" && "$parent" != "$path" ]]; then
+        mkdir -p "$parent"
+    fi
+}
+
+copy_file() {
+    local src="$1"
+    local dest="$2"
+    SRC_FILE="$src" DEST_FILE="$dest" python3 - <<'PYTHON'
+import os
+from pathlib import Path
+
+src_file = Path(os.environ["SRC_FILE"])
+dest_file = Path(os.environ["DEST_FILE"])
+dest_file.write_bytes(src_file.read_bytes())
+PYTHON
+}
+
 print_info "Generating Hindsight documentation skill..."
 
 # Clean and recreate skill directory
@@ -38,7 +59,7 @@ process_file() {
     local dest_file="$REFS_DIR/$rel_path"
 
     # Create destination directory
-    mkdir -p "$(dirname "$dest_file")"
+    ensure_parent_dir "$dest_file"
 
     # Process the file
     if [[ "$src_file" == *.mdx ]]; then
@@ -48,7 +69,7 @@ process_file() {
         convert_mdx_to_md "$src_file" "$dest_file"
     else
         print_info "Copying: $rel_path"
-        cp "$src_file" "$dest_file"
+        copy_file "$src_file" "$dest_file"
     fi
 }
 
@@ -61,16 +82,20 @@ convert_mdx_to_md() {
     local dest="$2"
 
     # Use Python for more robust processing
-    python3 - "$src" "$dest" "$EXAMPLES_DIR" "$ROOT_DIR/hindsight-docs/src/data/llmProviders.json" <<'PYTHON'
+    SRC_FILE="$src" \
+    DEST_FILE="$dest" \
+    EXAMPLES_DIR="$EXAMPLES_DIR" \
+    LLM_PROVIDERS_JSON="$ROOT_DIR/hindsight-docs/src/data/llmProviders.json" \
+    python3 - <<'PYTHON'
 import json
-import sys
+import os
 import re
 from pathlib import Path
 
-src_file = Path(sys.argv[1])
-dest_file = Path(sys.argv[2])
-examples_dir = Path(sys.argv[3])
-llm_providers_json = Path(sys.argv[4])
+src_file = Path(os.environ["SRC_FILE"])
+dest_file = Path(os.environ["DEST_FILE"])
+examples_dir = Path(os.environ["EXAMPLES_DIR"])
+llm_providers_json = Path(os.environ["LLM_PROVIDERS_JSON"])
 
 content = src_file.read_text()
 original_content = content  # Keep original for import searches
@@ -190,11 +215,11 @@ for page in best-practices faq; do
         src="$PAGES_DIR/$page.$ext"
         if [ -f "$src" ]; then
             dest="$REFS_DIR/$page.md"
-            mkdir -p "$(dirname "$dest")"
+            ensure_parent_dir "$dest"
             if [[ "$src" == *.mdx ]]; then
                 convert_mdx_to_md "$src" "$dest"
             else
-                cp "$src" "$dest"
+                copy_file "$src" "$dest"
             fi
             print_info "Included page: $page.$ext"
         fi
@@ -207,11 +232,11 @@ if [ -f "$PAGES_DIR/changelog.md" ] || [ -f "$PAGES_DIR/changelog.mdx" ]; then
         src="$PAGES_DIR/changelog.$ext"
         if [ -f "$src" ]; then
             dest="$REFS_DIR/changelog.md"
-            mkdir -p "$(dirname "$dest")"
+            ensure_parent_dir "$dest"
             if [[ "$src" == *.mdx ]]; then
                 convert_mdx_to_md "$src" "$dest"
             else
-                cp "$src" "$dest"
+                copy_file "$src" "$dest"
             fi
             print_info "Included page: changelog.$ext"
         fi
@@ -223,11 +248,11 @@ elif [ -d "$PAGES_DIR/changelog" ]; then
         if [[ "$file" == *.mdx ]]; then
             dest="${dest%.mdx}.md"
         fi
-        mkdir -p "$(dirname "$dest")"
+        ensure_parent_dir "$dest"
         if [[ "$file" == *.mdx ]]; then
             convert_mdx_to_md "$file" "$dest"
         else
-            cp "$file" "$dest"
+            copy_file "$file" "$dest"
         fi
         print_info "Included changelog: ${file#$PAGES_DIR/changelog/}"
     done
@@ -236,7 +261,7 @@ fi
 # Copy OpenAPI spec into the skill
 OPENAPI_SRC="$ROOT_DIR/hindsight-docs/static/openapi.json"
 if [ -f "$OPENAPI_SRC" ]; then
-    cp "$OPENAPI_SRC" "$REFS_DIR/openapi.json"
+    copy_file "$OPENAPI_SRC" "$REFS_DIR/openapi.json"
     print_info "Included: openapi.json"
 else
     print_warn "openapi.json not found at $OPENAPI_SRC — skipping"

@@ -216,7 +216,9 @@ async def test_file_retain_validation_errors(memory_no_llm_verify):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Create bank
-        bank_response = await client.put("/v1/default/banks/test-validation-bank", json={"name": "Test Validation Bank"})
+        bank_response = await client.put(
+            "/v1/default/banks/test-validation-bank", json={"name": "Test Validation Bank"}
+        )
         assert bank_response.status_code in (200, 201)
 
         # Test: metadata count mismatch
@@ -342,6 +344,36 @@ async def test_markitdown_converter():
     assert isinstance(result, str)
     assert len(result) > 0
     assert "test document" in result.lower() or "multiple lines" in result.lower()
+
+
+def test_markitdown_ocr_parser_metadata():
+    """Test markitdown_ocr parser metadata without calling the LLM."""
+    from hindsight_api.engine.parsers import MarkitdownOCRParser
+
+    parser = MarkitdownOCRParser(api_key="test-key", model="gpt-4o")
+
+    assert parser.name() == "markitdown_ocr"
+    assert parser.supports("scan.pdf")
+    assert parser.supports("slides.pptx")
+    assert not parser.supports("notes.txt")
+
+
+def test_markitdown_ocr_uses_native_gemini_client():
+    """Gemini OCR should use the native Google Gen AI SDK behind the plugin adapter."""
+    from hindsight_api.engine.parsers.markitdown_ocr import _create_llm_client, _GeminiOpenAIShapeClient
+
+    client = _create_llm_client(provider="gemini", api_key="test-key", base_url=None, default_headers=None)
+
+    assert isinstance(client, _GeminiOpenAIShapeClient)
+    assert hasattr(client.chat, "completions")
+
+
+def test_markitdown_ocr_requires_api_key_for_gemini():
+    """Gemini OCR should fail early when no Gemini API key is configured."""
+    from hindsight_api.engine.parsers import MarkitdownOCRParser
+
+    with pytest.raises(ValueError, match="api_key is required"):
+        MarkitdownOCRParser(provider="gemini", model="gemini-3.1-flash-lite")
 
 
 @pytest.mark.asyncio

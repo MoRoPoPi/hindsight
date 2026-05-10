@@ -172,6 +172,53 @@ def test_read_database_url_empty_string_is_treated_as_unset(monkeypatch):
     assert config.read_database_url is None
 
 
+def test_ocrmypdf_parser_config_defaults(monkeypatch) -> None:
+    """OCRmyPDF parser config should default to English and one worker."""
+    from hindsight_api.config import (
+        ENV_FILE_PARSER_OCRMYPDF_JOBS,
+        ENV_FILE_PARSER_OCRMYPDF_LANG,
+        HindsightConfig,
+    )
+
+    monkeypatch.delenv(ENV_FILE_PARSER_OCRMYPDF_LANG, raising=False)
+    monkeypatch.delenv(ENV_FILE_PARSER_OCRMYPDF_JOBS, raising=False)
+    monkeypatch.setenv("HINDSIGHT_API_LLM_PROVIDER", "mock")
+
+    config = HindsightConfig.from_env()
+
+    assert config.file_parser_ocrmypdf_lang == "eng"
+    assert config.file_parser_ocrmypdf_jobs == 1
+
+
+def test_ocrmypdf_parser_config_overrides(monkeypatch) -> None:
+    """OCRmyPDF parser config should read language and job overrides."""
+    from hindsight_api.config import (
+        ENV_FILE_PARSER_OCRMYPDF_JOBS,
+        ENV_FILE_PARSER_OCRMYPDF_LANG,
+        HindsightConfig,
+    )
+
+    monkeypatch.setenv(ENV_FILE_PARSER_OCRMYPDF_LANG, "eng+fra")
+    monkeypatch.setenv(ENV_FILE_PARSER_OCRMYPDF_JOBS, "3")
+    monkeypatch.setenv("HINDSIGHT_API_LLM_PROVIDER", "mock")
+
+    config = HindsightConfig.from_env()
+
+    assert config.file_parser_ocrmypdf_lang == "eng+fra"
+    assert config.file_parser_ocrmypdf_jobs == 3
+
+
+def test_ocrmypdf_parser_jobs_must_be_positive(monkeypatch) -> None:
+    """OCRmyPDF job count should fail fast when misconfigured."""
+    from hindsight_api.config import ENV_FILE_PARSER_OCRMYPDF_JOBS, HindsightConfig
+
+    monkeypatch.setenv(ENV_FILE_PARSER_OCRMYPDF_JOBS, "0")
+    monkeypatch.setenv("HINDSIGHT_API_LLM_PROVIDER", "mock")
+
+    with pytest.raises(ValueError, match="HINDSIGHT_API_FILE_PARSER_OCRMYPDF_JOBS must be >= 1"):
+        HindsightConfig.from_env()
+
+
 def test_log_config_masks_read_database_url(monkeypatch, caplog):
     """Read-replica URL credentials must be masked in startup logs, same as
     the primary URL.

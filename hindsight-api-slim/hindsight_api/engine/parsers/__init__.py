@@ -7,6 +7,8 @@ from .base import FileParser, UnsupportedFileTypeError
 from .iris import IrisParser
 from .llama_parse import LlamaParseParser
 from .markitdown import MarkitdownParser
+from .markitdown_ocr import MarkitdownOCRParser
+from .ocrmypdf import OCRMYPDFParser
 
 __all__ = [
     "FileParser",
@@ -14,6 +16,8 @@ __all__ = [
     "IrisParser",
     "LlamaParseParser",
     "MarkitdownParser",
+    "MarkitdownOCRParser",
+    "OCRMYPDFParser",
     "FileParserRegistry",
     "ConvertResult",
 ]

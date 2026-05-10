@@ -1990,7 +1990,14 @@ class MemoryEngine(MemoryEngineInterface):
         logger.debug(f"File storage initialized ({config.file_storage_type})")
 
         # Initialize parser registry
-        from .parsers import FileParserRegistry, IrisParser, LlamaParseParser, MarkitdownParser
+        from .parsers import (
+            FileParserRegistry,
+            IrisParser,
+            LlamaParseParser,
+            MarkitdownOCRParser,
+            MarkitdownParser,
+            OCRMYPDFParser,
+        )
 
         self._parser_registry = FileParserRegistry()
         try:
@@ -1998,6 +2005,39 @@ class MemoryEngine(MemoryEngineInterface):
             logger.debug("Registered markitdown parser")
         except ImportError:
             logger.warning("markitdown not available - file parsing disabled")
+        try:
+            self._parser_registry.register(
+                OCRMYPDFParser(
+                    language=config.file_parser_ocrmypdf_lang,
+                    jobs=config.file_parser_ocrmypdf_jobs,
+                )
+            )
+            logger.debug("Registered ocrmypdf parser")
+        except ImportError:
+            logger.debug("ocrmypdf not available - OCRmyPDF parser disabled")
+        except Exception as e:
+            logger.warning(f"ocrmypdf parser not registered: {e}")
+        try:
+            markitdown_ocr_provider = config.file_parser_markitdown_ocr_provider or config.llm_provider
+            markitdown_ocr_api_key = config.file_parser_markitdown_ocr_api_key
+            if not markitdown_ocr_api_key and markitdown_ocr_provider == config.llm_provider:
+                markitdown_ocr_api_key = config.llm_api_key
+            markitdown_ocr_model = config.file_parser_markitdown_ocr_model or config.llm_model
+            self._parser_registry.register(
+                MarkitdownOCRParser(
+                    provider=markitdown_ocr_provider,
+                    api_key=markitdown_ocr_api_key,
+                    base_url=config.file_parser_markitdown_ocr_base_url or config.get_llm_base_url() or None,
+                    model=markitdown_ocr_model,
+                    prompt=config.file_parser_markitdown_ocr_prompt,
+                    default_headers=config.llm_default_headers,
+                )
+            )
+            logger.debug("Registered markitdown_ocr parser")
+        except ImportError:
+            logger.debug("markitdown-ocr not available - OCR file parser disabled")
+        except Exception as e:
+            logger.warning(f"markitdown_ocr parser not registered: {e}")
         iris_token = config.file_parser_iris_token
         iris_org_id = config.file_parser_iris_org_id
         if iris_token and iris_org_id:

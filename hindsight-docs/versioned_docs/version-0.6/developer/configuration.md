@@ -956,7 +956,7 @@ Clients can override the server default by passing `parser` in the request body 
 export HINDSIGHT_API_FILE_PARSER=iris,markitdown
 
 # Restrict what clients may request (optional — defaults to all registered parsers)
-export HINDSIGHT_API_FILE_PARSER_ALLOWLIST=markitdown,iris
+export HINDSIGHT_API_FILE_PARSER_ALLOWLIST=markitdown,ocrmypdf,markitdown_ocr,iris
 ```
 
 ```json
@@ -965,7 +965,7 @@ export HINDSIGHT_API_FILE_PARSER_ALLOWLIST=markitdown,iris
   "parser": "iris",
   "files_metadata": [
     { "document_id": "report" },
-    { "document_id": "fallback_doc", "parser": ["iris", "markitdown"] }
+    { "document_id": "fallback_doc", "parser": ["markitdown_ocr", "markitdown"] }
   ]
 }
 ```
@@ -977,6 +977,48 @@ Clients that request a parser not in the allowlist receive HTTP 400.
 Local file-to-markdown conversion using [Microsoft's markitdown](https://github.com/microsoft/markitdown). No external service required.
 
 **Supported formats:** PDF, DOCX, DOC, PPTX, PPT, XLSX, XLS, images (JPG, PNG — OCR), audio (MP3, WAV — transcription), HTML, TXT, MD, CSV.
+
+#### Parser: ocrmypdf
+
+Local OCR for scanned PDFs using OCRmyPDF, Tesseract, and Ghostscript. Hindsight Docker images include the required system packages; custom deployments must install `tesseract`, `ghostscript`, and OCR language data such as `tesseract-ocr-eng`.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `HINDSIGHT_API_FILE_PARSER_OCRMYPDF_LANG` | Tesseract language(s), e.g. `eng` or `eng+fra` | `eng` |
+| `HINDSIGHT_API_FILE_PARSER_OCRMYPDF_JOBS` | OCRmyPDF worker processes per conversion | `1` |
+
+**Supported formats:** PDF.
+
+```bash
+# Try local OCR first for scanned PDFs, then fall back to MarkItDown
+export HINDSIGHT_API_FILE_PARSER=ocrmypdf,markitdown
+export HINDSIGHT_API_FILE_PARSER_OCRMYPDF_LANG=eng
+```
+
+#### Parser: markitdown_ocr
+
+OCR-enhanced MarkItDown conversion using the `markitdown-ocr` plugin and an OpenAI-compatible vision model. Use this for scanned PDFs or documents with image-only pages while keeping the regular `markitdown` parser available as a local fallback.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROVIDER` | Provider used for OCR. Set to `gemini` to use Gemini models through the native Google Gen AI SDK. Falls back to `HINDSIGHT_API_LLM_PROVIDER` if unset. | — |
+| `HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_MODEL` | Vision model used for OCR. Falls back to `HINDSIGHT_API_LLM_MODEL` if unset. | — |
+| `HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_API_KEY` | OpenAI-compatible API key. Falls back to `HINDSIGHT_API_LLM_API_KEY` if unset. | — |
+| `HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_BASE_URL` | OpenAI-compatible base URL. Falls back to the main LLM base URL/provider default if unset. | — |
+| `HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROMPT` | Optional prompt override for OCR text extraction. | — |
+
+**Supported formats:** PDF, DOCX, PPTX, XLSX.
+
+```bash
+# Try LLM-vision OCR first, then fall back to local MarkItDown conversion
+export HINDSIGHT_API_FILE_PARSER=markitdown_ocr,markitdown
+export HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_MODEL=gpt-4o-mini
+
+# Use Gemini for OCR, even if the main memory extraction model is not Gemini
+export HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROVIDER=gemini
+export HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_MODEL=gemini-3.1-flash-lite
+export HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_API_KEY=your-gemini-api-key
+```
 
 #### Parser: iris
 
